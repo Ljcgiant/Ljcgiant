@@ -13,54 +13,49 @@ def parse_arguments():
 
 def generate_number(max_range):
     if random.random() < 0.5:
-        return random.randint(1, max_range)
+        # 生成1到max_range - 1之间的随机整数
+        return random.randint(1, max_range - 1)
     else:
-        numerator = random.randint(1, max_range)
-        denominator = random.randint(1, max_range)
-        while numerator % 2 == 0 and denominator % 2 == 0:
-            numerator = random.randint(1, max_range)
-            denominator = random.randint(1, max_range)
+        # 生成真分数，确保分子和分母都在1到max_range - 1之间，且分母不为零
+        numerator = random.randint(1, max_range - 1)
+        denominator = random.randint(1, max_range - 1)
+        # 确保真分数小于1
+        while numerator >= denominator:
+            numerator = random.randint(1, max_range - 1)
+            denominator = random.randint(1, max_range - 1)
         return Fraction(numerator, denominator)
 
+
 def generate_expression(max_range):
-    num1 = generate_number(max_range)
-    num2 = generate_number(max_range)
+    num_count = random.randint(2, 4)  # 表达式中数字的数量
+    nums = [generate_number(max_range) for _ in range(num_count)]
     operators = ['+', '-', '*', '/']
-    operator = random.choice(operators)
-    if operator == '+':
-        return f"{num1} {operator} {num2}"
-    elif operator == '-':
-        if num1 >= num2:
-            return f"{num1} {operator} {num2}"
-        else:
-            return f"{num2} {operator} {num1}"
-    elif operator == '*':
-        return f"{num1} {operator} {num2}"
-    elif operator == '/':
-        if num2 != 0:
-            result = num1 / num2
-            if result <= 1 and result != int(result):
-                return f"{num1} {operator} {num2}"
+    expression = str(nums[0])
+
+    # 确保表达式中不会产生负数
+    for i, num in enumerate(nums[1:], start=1):
+        operator = random.choice(operators)
+        if operator == '-' and nums[i-1] < num:  # 减法，确保结果非负
+            nums[i-1], num = num, nums[i-1]
+        elif operator == '/':  # 除法，确保除数小于被除数，结果为真分数
+            if nums[i-1] > num:
+                nums[i-1], num = num, nums[i-1]
             else:
-                return f"{num2} {operator} {num1}"
+                continue  # 如果不满足条件，重新选择运算符和数字
+        expression += f" {operator} {num}"
+
+    return expression
 
 def generate_question(max_range):
-    question = ""
-    num_operators = random.randint(1, 3)
-    expressions = []
-    for _ in range(num_operators):
-        expressions.append(generate_expression(max_range))
-    question = " ".join(expressions)
-    return question
+    expression = generate_expression(max_range)
+    return f"{expression} "
 
 def generate_questions(num_questions, max_range):
     questions = set()
     while len(questions) < num_questions:
         question = generate_question(max_range)
-        parsed_question = parse_question(question)
-        if parsed_question not in questions:
-            questions.add(parsed_question)
-    return questions
+        questions.add(question)
+    return list(questions)
 
 def parse_question(question):
     return question.replace(" ", "")
@@ -140,17 +135,19 @@ def save_grades(correct, wrong, filename="Grade.txt"):
 def main():
     args = parse_arguments()
     if args.n:
-        questions = generate_questions(args.n, args.r)
+        # 确保 max_range 设置为 10
+        max_range = 10 if args.r >= 10 else args.r
+        questions = generate_questions(args.n, max_range)
         answers = [calculate_answer(q) for q in questions]
-        save_questions(questions)
-        save_answers(answers)
+        save_questions(questions, "Exercises.txt")
+        save_answers(answers, "Answers.txt")
     if args.e and args.a:
         print(f"Validating answers using exercise file: {args.e}")
         print(f"And answer file: {args.a}")
         correct, wrong = validate_answers(args.e, args.a)
         print(f"Correct answers: {correct}")
         print(f"Wrong answers: {wrong}")
-        save_grades(correct, wrong)
+        save_grades(correct, wrong, "Grade.txt")
         print("Grades have been saved.")
 
 if __name__ == "__main__":
